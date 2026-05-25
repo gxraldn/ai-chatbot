@@ -1,25 +1,20 @@
 import streamlit as st
-import google.generativeai as genai
 import os
-from google.api_core.exceptions import ResourceExhausted, NotFound, InvalidArgument
+from groq import Groq
+from groq import RateLimitError, APIConnectionError
 
 # ===================== CONFIG =====================
 st.set_page_config(page_title="Carepod AI Support", page_icon="💧", layout="centered")
 st.title("💧 Carepod AI Customer Support")
 st.markdown("**Official AI Assistant** — Get help with your humidifier")
 
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
 
-if not GEMINI_API_KEY:
-    st.error("Please add your Gemini API Key in the sidebar.")
-    with st.sidebar:
-        api_key = st.text_input("Enter Gemini API Key:", type="password")
-        if st.button("Save Key"):
-            st.session_state.api_key = api_key
-            st.success("Key saved!")
+if not GROQ_API_KEY:
+    st.error("Please add your Groq API Key in Streamlit secrets.")
     st.stop()
 
-genai.configure(api_key=GEMINI_API_KEY)
+client = Groq(api_key=GROQ_API_KEY)
 
 # ===================== SYSTEM PROMPT =====================
 system_prompt = """
@@ -57,31 +52,24 @@ if prompt := st.chat_input("Ask me anything about your Carepod humidifier..."):
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
-                model = genai.GenerativeModel(
-                    model_name="gemini-2.0-flash-lite",
-                    system_instruction=system_prompt
+                # Build full conversation history
+                history = [{"role": "system", "content": system_prompt}]
+                for m in st.session_state.messages:
+                    history.append({"role": m["role"], "content": m["content"]})
+
+                response = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",  # Free & powerful
+                    messages=history,
+                    max_tokens=1000
                 )
+                response_text = response.choices[0].message.content
 
-                # Build full conversation history for context
-                history = [
-                    {"role": m["role"], "parts": [m["content"]]}
-                    for m in st.session_state.messages
-                ]
-
-                response = model.generate_content(history)
-                response_text = response.text
-
-            except ResourceExhausted:
-                response_text = "⚠️ I'm receiving too many requests right now. Please wait a moment and try again."
-
-            except NotFound:
-                response_text = "⚠️ There was an issue connecting to the AI model. Please contact support."
-
-            except InvalidArgument:
-                response_text = "⚠️ There was a problem with the request. Please try rephrasing your message."
-
+            except RateLimitError:
+                response_text = "⚠️ Too many requests. Please wait a moment and try again."
+            except APIConnectionError:
+                response_text = "⚠️ Connection error. Please check your internet and try again."
             except Exception as e:
-                response_text = "⚠️ Something went wrong on my end. Please try again in a moment."
+                response_text = "⚠️ Something went wrong. Please try again in a moment."
 
             st.markdown(response_text)
             st.session_state.messages.append({"role": "assistant", "content": response_text})
