@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 import os
+from google.api_core.exceptions import ResourceExhausted, NotFound, InvalidArgument
 
 # ===================== CONFIG =====================
 st.set_page_config(page_title="Carepod AI Support", page_icon="💧", layout="centered")
@@ -55,19 +56,32 @@ if prompt := st.chat_input("Ask me anything about your Carepod humidifier..."):
 
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
-            model = genai.GenerativeModel(
-                model_name="gemini-2.0-flash",  # ✅ Fixed model name
-                system_instruction=system_prompt
-            )
+            try:
+                model = genai.GenerativeModel(
+                    model_name="gemini-2.0-flash",
+                    system_instruction=system_prompt
+                )
 
-            # ✅ Build full conversation history for context
-            history = [
-                {"role": m["role"], "parts": [m["content"]]}
-                for m in st.session_state.messages
-            ]
+                # Build full conversation history for context
+                history = [
+                    {"role": m["role"], "parts": [m["content"]]}
+                    for m in st.session_state.messages
+                ]
 
-            response = model.generate_content(history)  # ✅ Send full history
-            response_text = response.text
+                response = model.generate_content(history)
+                response_text = response.text
+
+            except ResourceExhausted:
+                response_text = "⚠️ I'm receiving too many requests right now. Please wait a moment and try again."
+
+            except NotFound:
+                response_text = "⚠️ There was an issue connecting to the AI model. Please contact support."
+
+            except InvalidArgument:
+                response_text = "⚠️ There was a problem with the request. Please try rephrasing your message."
+
+            except Exception as e:
+                response_text = "⚠️ Something went wrong on my end. Please try again in a moment."
 
             st.markdown(response_text)
             st.session_state.messages.append({"role": "assistant", "content": response_text})
