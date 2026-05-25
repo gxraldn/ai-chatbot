@@ -4,11 +4,9 @@ import os
 
 # ===================== CONFIG =====================
 st.set_page_config(page_title="Carepod AI Support", page_icon="💧", layout="centered")
-
 st.title("💧 Carepod AI Customer Support")
 st.markdown("**Official AI Assistant** — Get help with your humidifier")
 
-# Replace with your own Gemini API key (free)
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
@@ -25,9 +23,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 # ===================== SYSTEM PROMPT =====================
 system_prompt = """
 You are Nova, the official AI Customer Support Assistant for Carepod — a premium humidifier brand.
-
 Tone: Professional, friendly, calm, empathetic, and solution-oriented.
-
 Core Rules:
 - Always be polite and empathetic.
 - Use bullet points and numbered steps for instructions.
@@ -35,7 +31,6 @@ Core Rules:
 - Strongly recommend distilled or filtered water.
 - Always ask for Order Number when discussing warranty, returns, or replacements.
 - Never guess information.
-
 Response Structure (Follow exactly):
 1. Acknowledge the issue with empathy.
 2. Ask for missing details if needed (Order #, model, symptoms).
@@ -61,12 +56,18 @@ if prompt := st.chat_input("Ask me anything about your Carepod humidifier..."):
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
+                model_name="gemini-2.0-flash",  # ✅ Fixed model name
                 system_instruction=system_prompt
             )
-            
-            response = model.generate_content(prompt)
+
+            # ✅ Build full conversation history for context
+            history = [
+                {"role": m["role"], "parts": [m["content"]]}
+                for m in st.session_state.messages
+            ]
+
+            response = model.generate_content(history)  # ✅ Send full history
             response_text = response.text
-            
+
             st.markdown(response_text)
             st.session_state.messages.append({"role": "assistant", "content": response_text})
