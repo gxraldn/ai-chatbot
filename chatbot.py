@@ -58,7 +58,7 @@ if prompt := st.chat_input("Ask me anything about your Carepod humidifier..."):
         with st.spinner("Thinking..."):
             try:
                 model = genai.GenerativeModel(
-                    model_name="gemini-2.0-flash",
+                    model_name="gemini-2.0-flash-lite",
                     system_instruction=system_prompt
                 )
 
